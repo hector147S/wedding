@@ -293,18 +293,52 @@ a { color: inherit; text-decoration: none; }
 /* map */
 .map-wrap {
   width: 100%;
-  height: 380px;
   border: 1px solid var(--border);
   border-radius: 4px;
   overflow: hidden;
+  position: relative;
 }
 .map-wrap iframe {
   width: 100%;
-  height: 100%;
+  height: 380px;
   border: none;
   display: block;
   filter: grayscale(0.35) sepia(0.08);
+  transition: filter 0.3s ease;
 }
+.map-wrap:hover iframe { filter: grayscale(0) sepia(0); }
+.map-actions {
+  display: flex;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--bone);
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+  align-items: center;
+}
+.map-btn {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 9px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.map-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+.map-btn:hover { background: var(--ink); color: var(--bone); border-color: var(--ink); }
+.map-btn.primary { background: var(--ink); color: var(--bone); border-color: var(--ink); }
+.map-btn.primary:hover { background: var(--forest); border-color: var(--forest); }
+.map-label { font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-left: auto; }
 
 /* amber accent line */
 .amber-rule {
@@ -568,6 +602,53 @@ footer {
         title="Château de Bellefeuille location"
         aria-label="Map showing wedding venue location in Vouvray, Loire Valley"
       ></iframe>
+
+      <!-- Action bar below the map -->
+      <div class="map-actions">
+
+        <!-- Open full map in new tab -->
+        <a class="map-btn primary"
+           href="https://www.openstreetmap.org/?mlat=47.4040&mlon=0.7736#map=15/47.4040/0.7736"
+           target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="11" r="3"/><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+          </svg>
+          View on map
+        </a>
+
+        <!-- Google Maps directions -->
+        <a class="map-btn"
+           href="https://www.google.com/maps/dir/?api=1&destination=47.4040,0.7736&destination_place_id=Ch%C3%A2teau+de+Bellefeuille+Vouvray"
+           target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+          </svg>
+          Google Maps
+        </a>
+
+        <!-- Apple Maps directions (works on iPhone/Mac) -->
+        <a class="map-btn"
+           href="https://maps.apple.com/?daddr=47.4040,0.7736&dirflg=d"
+           target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/>
+          </svg>
+          Apple Maps
+        </a>
+
+        <!-- Waze -->
+        <a class="map-btn"
+           href="https://waze.com/ul?ll=47.4040,0.7736&navigate=yes"
+           target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="10" r="5"/><path d="M12 15v6"/><path d="M9 18h6"/>
+          </svg>
+          Waze
+        </a>
+
+        <span class="map-label">Château de Bellefeuille · Vouvray</span>
+
+      </div>
     </div>
 
   </div>
@@ -628,160 +709,215 @@ footer {
 
 <script>
 /* ══════════════════════════════════════════════════════
-   CANVAS SCROLL-SCRUBBER
-   Strategy:
-   1. Load video into hidden <video> with preload="auto"
-   2. On every scroll event, set video.currentTime to
-      the target timestamp
-   3. On "seeked", immediately draw that frame to canvas
-      via ctx.drawImage(video, ...)
-   4. Use requestAnimationFrame to batch canvas paints
-      so we never paint more than once per frame
-   This eliminates visual stutter because the canvas
-   paints exactly when the browser is ready to composite,
-   and we're not fighting the video element's own renderer.
+   SCROLL-SCRUBBER — desktop: 90 frames @ full DPR
+                   — mobile:  50 frames @ 1× DPR
+                              + touch velocity damping
+                              + will-change GPU hint
 ══════════════════════════════════════════════════════ */
 (function () {
   const video  = document.getElementById('scrub-video');
   const canvas = document.getElementById('scrub-canvas');
   const hero   = document.getElementById('hero');
   const hint   = document.getElementById('scroll-hint');
-
   if (!video || !canvas || !hero) return;
 
-  const ctx = canvas.getContext('2d');
+  /* ── Device detection ── */
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+                || window.innerWidth < 768;
 
-  // Loading overlay — shown while video buffers
-  const loadEl = document.createElement('div');
-  loadEl.id = 'video-loading';
-  loadEl.innerHTML = '<span>Loading…</span>';
-  Object.assign(loadEl.style, {
-    position: 'absolute', inset: '0', display: 'flex',
-    alignItems: 'center', justifyContent: 'center',
-    fontFamily: 'var(--mono)', fontSize: '10px',
-    letterSpacing: '0.2em', textTransform: 'uppercase',
-    color: 'rgba(244,241,234,0.4)', zIndex: '5',
-    transition: 'opacity 0.6s ease', pointerEvents: 'none'
+  /* ── Tuning per device ── */
+  const TOTAL_FRAMES = isMobile ? 50 : 90;
+  // Mobile: cap at 1× DPR — half the pixels = 4× faster canvas paint
+  const DPR = isMobile ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+  // Mobile lerp: slightly faster catch-up so it doesn't feel sticky
+  const LERP = isMobile ? 0.28 : 0.18;
+
+  /* ── GPU hint on canvas — tells compositor to keep it on GPU layer ── */
+  canvas.style.willChange   = 'contents';
+  canvas.style.transform    = 'translateZ(0)';
+  canvas.style.backfaceVisibility = 'hidden';
+
+  /* ── Loading bar ── */
+  const bar = document.createElement('div');
+  Object.assign(bar.style, {
+    position:'absolute', bottom:'0', left:'0', height:'2px',
+    width:'0%', background:'rgba(183,128,58,0.8)',
+    transition:'width 0.2s ease', zIndex:'10', pointerEvents:'none'
   });
-  canvas.parentElement.appendChild(loadEl);
+  canvas.parentElement.appendChild(bar);
 
-  let rafPending    = false;
-  let targetTime    = 0;
-  let isSeeking     = false;
-  let pendingSeek   = false;
-  let duration      = 0;
-  let lastProgress  = -1;
+  const loadLabel = document.createElement('div');
+  loadLabel.innerHTML = isMobile ? 'Loading…' : 'Loading…';
+  Object.assign(loadLabel.style, {
+    position:'absolute', bottom:'18px', right:'24px',
+    fontFamily:'var(--mono)', fontSize:'9px', letterSpacing:'0.22em',
+    textTransform:'uppercase', color:'rgba(244,241,234,0.35)',
+    zIndex:'10', pointerEvents:'none', transition:'opacity 0.5s ease'
+  });
+  canvas.parentElement.appendChild(loadLabel);
 
-  // Size canvas to device pixel ratio for crisp rendering
-  function sizeCanvas () {
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width  = window.innerWidth  * dpr;
-    canvas.height = window.innerHeight * dpr;
-    ctx.scale(dpr, dpr);
-    // Redraw current frame at new size
-    if (video.readyState >= 2) drawFrame();
+  /* ── Canvas context ── */
+  const ctx2d  = canvas.getContext('2d', { alpha: false }); // alpha:false = faster compositing
+  let   bmpCtx = null;
+  try { bmpCtx = canvas.getContext('bitmaprenderer'); } catch(e) {}
+
+  function sizeCanvas() {
+    canvas.width  = Math.round(window.innerWidth  * DPR);
+    canvas.height = Math.round(window.innerHeight * DPR);
+  }
+  sizeCanvas();
+
+  /* ── Cover-fit ── */
+  function coverRect(sw, sh, dw, dh) {
+    const sa = sw/sh, da = dw/dh;
+    let w, h, x, y;
+    if (da > sa) { w=dw; h=dw/sa; x=0; y=(dh-h)/2; }
+    else         { h=dh; w=dh*sa; x=(dw-w)/2; y=0; }
+    return {x,y,w,h};
   }
 
-  function drawFrame () {
-    if (!rafPending) {
-      rafPending = true;
-      requestAnimationFrame(() => {
-        rafPending = false;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+  /* ── Frame cache ── */
+  const frameCache = new Array(TOTAL_FRAMES);
+  let cacheReady   = 0;
+  let allCached    = false;
 
-        // Cover-fit: fill canvas, centred
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-        const vAspect = video.videoWidth / video.videoHeight;
-        const cAspect = vw / vh;
-        let drawW, drawH, drawX, drawY;
-        if (cAspect > vAspect) {
-          drawW = vw;
-          drawH = vw / vAspect;
-          drawX = 0;
-          drawY = (vh - drawH) / 2;
-        } else {
-          drawH = vh;
-          drawW = vh * vAspect;
-          drawX = (vw - drawW) / 2;
-          drawY = 0;
-        }
-        ctx.drawImage(video, drawX, drawY, drawW, drawH);
-      });
+  /* ── State ── */
+  let duration    = 0;
+  let isSeeking   = false;
+  let pendingTime = -1;
+  let currentProg = 0;
+  let smoothProg  = 0;
+  let phase       = 'seek';
+
+  /* ── Paint raw video frame ── */
+  function paintVideo() {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw) return;
+    const cw = canvas.width/DPR, ch = canvas.height/DPR;
+    const {x,y,w,h} = coverRect(vw,vh,cw,ch);
+    ctx2d.save(); ctx2d.scale(DPR,DPR);
+    ctx2d.drawImage(video,x,y,w,h);
+    ctx2d.restore();
+  }
+
+  /* ── Paint cached bitmap ── */
+  function paintBitmap(bmp) {
+    if (!bmp) return;
+    if (bmpCtx) {
+      bmpCtx.transferFromImageBitmap(bmp);
+    } else {
+      const cw = canvas.width/DPR, ch = canvas.height/DPR;
+      const {x,y,w,h} = coverRect(bmp.width,bmp.height,cw,ch);
+      ctx2d.save(); ctx2d.scale(DPR,DPR);
+      ctx2d.drawImage(bmp,x,y,w,h);
+      ctx2d.restore();
     }
   }
 
-  function doSeek (time) {
-    if (isSeeking) {
-      pendingSeek = true;
-      targetTime  = time;
-      return;
-    }
+  /* ── Seek queue ── */
+  function seekTo(t) {
+    if (isSeeking) { pendingTime = t; return; }
     isSeeking = true;
-    video.currentTime = time;
+    video.currentTime = t;
   }
 
   video.addEventListener('seeked', () => {
-    drawFrame();
+    if (phase === 'seek') paintVideo();
     isSeeking = false;
-    if (pendingSeek) {
-      pendingSeek = false;
-      doSeek(targetTime);
-    }
+    if (pendingTime >= 0) { const t=pendingTime; pendingTime=-1; seekTo(t); }
   });
 
-  // Also draw on timeupdate during initial buffer
-  video.addEventListener('timeupdate', drawFrame);
-
-  function getProgress () {
-    const heroTop    = hero.getBoundingClientRect().top + window.scrollY;
-    const heroHeight = hero.offsetHeight - window.innerHeight;
-    const scrolled   = Math.max(0, window.scrollY - heroTop);
-    return Math.min(1, scrolled / heroHeight);
+  /* ── Scroll progress ── */
+  function getScrollProg() {
+    const top = hero.getBoundingClientRect().top + window.scrollY;
+    const h   = hero.offsetHeight - window.innerHeight;
+    return Math.min(1, Math.max(0, (window.scrollY - top) / h));
   }
 
-  function onScroll () {
-    const progress = getProgress();
-
-    // Hint fade
+  /* ── Touch velocity damping on mobile ──
+     iOS inertia scroll fires many events very fast.
+     We throttle so we never queue more than 1 seek per frame.  ── */
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    currentProg = getScrollProg();
+    if (isMobile && !ticking) {
+      ticking = true;
+      requestAnimationFrame(() => { ticking = false; });
+    }
     if (hint) {
-      hint.style.opacity      = progress > 0.03 ? '0' : '1';
-      hint.style.pointerEvents = progress > 0.03 ? 'none' : 'auto';
+      hint.style.opacity       = currentProg > 0.03 ? '0' : '1';
+      hint.style.pointerEvents = currentProg > 0.03 ? 'none' : 'auto';
     }
+  }, { passive: true });
 
-    if (!duration) return;
-    if (Math.abs(progress - lastProgress) < 0.001) return; // no meaningful change
-    lastProgress = progress;
+  /* ── RAF loop ── */
+  function tick() {
+    requestAnimationFrame(tick);
+    smoothProg += (currentProg - smoothProg) * LERP;
 
-    targetTime = duration * progress;
-    doSeek(targetTime);
+    if (allCached) {
+      const idx = Math.round(smoothProg * (TOTAL_FRAMES - 1));
+      paintBitmap(frameCache[idx]);
+    } else if (phase === 'seek' && duration) {
+      const t = smoothProg * duration;
+      if (Math.abs(video.currentTime - t) > 0.06) seekTo(t);
+    }
   }
 
-  video.addEventListener('loadedmetadata', () => {
-    duration = video.duration;
-    sizeCanvas();
-    // Draw first frame immediately
-    doSeek(0);
-    // Hide loading overlay
-    loadEl.style.opacity = '0';
-    setTimeout(() => loadEl.remove(), 700);
-  });
-
-  // Fallback: if metadata fires after canplay
-  video.addEventListener('canplay', () => {
-    if (!duration && video.duration) {
-      duration = video.duration;
-      sizeCanvas();
-      doSeek(0);
-      loadEl.style.opacity = '0';
-      setTimeout(() => loadEl.remove(), 700);
+  /* ── Build frame cache ──
+     On mobile we build fewer frames but resize each bitmap
+     to half-resolution first — much faster to paint later. ── */
+  async function buildCache() {
+    const scale = isMobile ? 0.5 : 1; // capture at 50% on mobile
+    for (let i = 0; i < TOTAL_FRAMES; i++) {
+      const t = (i / (TOTAL_FRAMES - 1)) * duration;
+      await new Promise(resolve => {
+        const onSeeked = async () => {
+          video.removeEventListener('seeked', onSeeked);
+          try {
+            const opts = isMobile
+              ? { resizeWidth: Math.round(video.videoWidth * scale),
+                  resizeHeight: Math.round(video.videoHeight * scale),
+                  resizeQuality: 'pixelated' }
+              : {};
+            frameCache[i] = await createImageBitmap(video, opts);
+          } catch(e) { frameCache[i] = null; }
+          cacheReady++;
+          bar.style.width = (cacheReady / TOTAL_FRAMES * 100) + '%';
+          resolve();
+        };
+        video.addEventListener('seeked', onSeeked, { once: true });
+        video.currentTime = t;
+      });
+      // Tiny yield between frames on mobile to keep UI thread free
+      if (isMobile && i % 5 === 0) {
+        await new Promise(r => setTimeout(r, 16));
+      }
     }
-  });
+    allCached = true;
+    bar.style.opacity      = '0';
+    loadLabel.style.opacity = '0';
+    setTimeout(() => { bar.remove(); loadLabel.remove(); }, 600);
+    isSeeking = false;
+  }
 
+  /* ── Init ── */
+  function init() {
+    duration = video.duration;
+    if (!duration) return;
+    phase = 'seek';
+    requestAnimationFrame(tick);
+    setTimeout(() => { phase = 'cache'; buildCache(); }, isMobile ? 200 : 400);
+  }
+
+  video.addEventListener('loadedmetadata', init);
+  video.addEventListener('canplay', () => { if (!duration && video.duration) init(); });
   video.pause();
-  window.addEventListener('scroll', onScroll, { passive: true });
-  window.addEventListener('resize', () => { sizeCanvas(); onScroll(); });
-  onScroll();
+
+  window.addEventListener('resize', () => {
+    sizeCanvas();
+    if (allCached) paintBitmap(frameCache[Math.round(currentProg*(TOTAL_FRAMES-1))]);
+  });
 })();
 
 
