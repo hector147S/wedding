@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amélie & Julien · 14 June 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Geist:wght@300;400;500&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ─── TOKENS ─── */
+:root {
+  --bone:    #f4f1ea;
+  --ink:     #14201a;
+  --forest:  #1f3a2e;
+  --amber:   #b7803a;
+  --muted:   #6a7269;
+  --border:  rgba(20,32,26,0.12);
+
+  --display:  'Cormorant Garamond', Georgia, serif;
+  --body:     'Geist', system-ui, sans-serif;
+  --mono:     'Geist Mono', monospace;
+
+  --max-w: 1140px;
+  --section-gap: 140px;
+}
+
+/* ─── RESET ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--body);
+  background: var(--bone);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+img, video { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+
+/* ─── REDUCED MOTION ─── */
+@media (prefers-reduced-motion: reduce) {
+  .hero-video-wrap video { display: none; }
+  .hero-video-wrap { background-image: url('poster.jpg'); background-size: cover; background-position: center; }
+  .fade-in { opacity: 1 !important; transform: none !important; transition: none !important; }
+}
+
+/* ─── UTILITY ─── */
+.container { max-width: var(--max-w); margin: 0 auto; padding: 0 40px; }
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.rule { border: none; border-top: 1px solid var(--border); }
+
+/* ─── FADE IN ─── */
+.fade-in {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.55s ease-out, transform 0.55s ease-out;
+}
+.fade-in.visible { opacity: 1; transform: none; }
+.fade-in.delay-1 { transition-delay: 0.1s; }
+.fade-in.delay-2 { transition-delay: 0.22s; }
+.fade-in.delay-3 { transition-delay: 0.38s; }
+
+/* ══════════════════════════════════════
+   HERO — scroll-scrubbed video
+══════════════════════════════════════ */
+#hero {
+  position: relative;
+  height: 260vh; /* scroll distance — gives enough room to play the full clip */
+}
+
+.hero-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* canvas sits behind everything — video is hidden decode source */
+.hero-video-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: #14201a; /* ink fallback while loading */
+}
+#scrub-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* gradient overlay — bottom-weighted so lower text stays legible */
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom,
+      rgba(20,32,26,0.55) 0%,
+      rgba(20,32,26,0.28) 40%,
+      rgba(20,32,26,0.48) 75%,
+      rgba(20,32,26,0.72) 100%
+    );
+  z-index: 1;
+}
+
+/* text centred over video */
+.hero-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  color: var(--bone);
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.hero-eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(244,241,234,0.7);
+  margin-bottom: 28px;
+}
+
+.hero-names {
+  font-family: var(--display);
+  font-weight: 300;
+  font-size: clamp(62px, 10vw, 118px);
+  line-height: 0.92;
+  letter-spacing: -0.01em;
+  color: var(--bone);
+}
+.hero-names .amp {
+  font-style: italic;
+  font-weight: 300;
+  font-size: 0.62em;
+  display: block;
+  margin: 6px 0;
+  color: rgba(244,241,234,0.75);
+}
+
+.hero-rule {
+  width: 60px;
+  border-top: 1px solid rgba(244,241,234,0.35);
+  margin: 26px 0;
+}
+
+.hero-date-loc {
+  font-family: var(--display);
+  font-size: clamp(13px, 1.6vw, 17px);
+  letter-spacing: 0.18em;
+  font-weight: 400;
+  color: rgba(244,241,234,0.82);
+  text-transform: uppercase;
+}
+.hero-date-loc span { margin: 0 12px; color: var(--amber); }
+
+/* scroll hint */
+.scroll-hint {
+  position: absolute;
+  bottom: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  transition: opacity 0.4s ease;
+}
+.scroll-hint p {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: rgba(244,241,234,0.5);
+}
+.scroll-arrow {
+  width: 1px;
+  height: 38px;
+  background: linear-gradient(to bottom, rgba(244,241,234,0.4), transparent);
+  animation: arrowPulse 1.8s ease-in-out infinite;
+}
+@keyframes arrowPulse {
+  0%, 100% { opacity: 0.4; transform: scaleY(1); }
+  50% { opacity: 1; transform: scaleY(1.1); }
+}
+
+/* ══════════════════════════════════════
+   EVENT DETAILS
+══════════════════════════════════════ */
+#details {
+  background: var(--bone);
+  padding: var(--section-gap) 0;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: start;
+  margin-bottom: 80px;
+}
+
+/* left col */
+.details-left {}
+.details-headline {
+  font-family: var(--display);
+  font-size: clamp(30px, 4vw, 50px);
+  font-weight: 400;
+  line-height: 1.18;
+  color: var(--ink);
+  margin-bottom: 28px;
+}
+.details-headline em { font-style: italic; color: var(--muted); }
+.details-intro {
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.78;
+  color: var(--muted);
+  max-width: 400px;
+}
+
+/* right col — divided list */
+.details-list {
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+.details-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 24px;
+}
+.dl-key {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.dl-val {
+  font-family: var(--display);
+  font-size: clamp(20px, 2.4vw, 28px);
+  font-weight: 400;
+  color: var(--ink);
+  text-align: right;
+}
+.dl-sub {
+  font-family: var(--body);
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+  text-align: right;
+}
+
+/* venue block above map */
+.venue-block {
+  margin-bottom: 24px;
+}
+.venue-name {
+  font-family: var(--display);
+  font-size: clamp(22px, 3vw, 34px);
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.venue-address {
+  font-family: var(--body);
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* map */
+.map-wrap {
+  width: 100%;
+  height: 380px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.map-wrap iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+  filter: grayscale(0.35) sepia(0.08);
+}
+
+/* amber accent line */
+.amber-rule {
+  width: 36px;
+  border-top: 2px solid var(--amber);
+  margin-bottom: 28px;
+}
+
+/* ══════════════════════════════════════
+   CONTACT — forest section
+══════════════════════════════════════ */
+#contact {
+  background: var(--forest);
+  padding: var(--section-gap) 0;
+}
+
+.contact-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+}
+
+.contact-eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: rgba(244,241,234,0.45);
+  margin-bottom: 32px;
+}
+
+.contact-headline {
+  font-family: var(--display);
+  font-size: clamp(44px, 7vw, 86px);
+  font-weight: 300;
+  line-height: 1.05;
+  color: var(--bone);
+  margin-bottom: 16px;
+}
+.contact-headline em {
+  font-style: italic;
+  color: rgba(244,241,234,0.7);
+}
+
+.contact-sub {
+  font-family: var(--body);
+  font-size: 14px;
+  color: rgba(244,241,234,0.5);
+  margin-bottom: 56px;
+  letter-spacing: 0.04em;
+}
+
+.contact-buttons {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 16px 32px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-block;
+}
+.btn-solid {
+  background: var(--bone);
+  color: var(--forest);
+  border: 1.5px solid var(--bone);
+}
+.btn-solid:hover {
+  background: transparent;
+  color: var(--bone);
+}
+.btn-outline {
+  background: transparent;
+  color: var(--bone);
+  border: 1.5px solid rgba(244,241,234,0.4);
+}
+.btn-outline:hover {
+  border-color: var(--bone);
+  background: rgba(244,241,234,0.06);
+}
+
+.rsvp-note {
+  margin-top: 44px;
+  font-family: var(--body);
+  font-size: 13px;
+  color: rgba(244,241,234,0.35);
+  letter-spacing: 0.04em;
+}
+.rsvp-note strong {
+  color: rgba(244,241,234,0.6);
+  font-weight: 400;
+}
+
+/* ══════════════════════════════════════
+   FOOTER
+══════════════════════════════════════ */
+footer {
+  background: var(--ink);
+  padding: 36px 0;
+}
+.footer-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.footer-monogram {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 400;
+  color: rgba(244,241,234,0.35);
+  letter-spacing: 0.06em;
+}
+.footer-date {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(244,241,234,0.25);
+}
+
+/* ─── MOBILE ─── */
+@media (max-width: 768px) {
+  .container { padding: 0 20px; }
+  :root { --section-gap: 80px; }
+  .details-grid {
+    grid-template-columns: 1fr;
+    gap: 48px;
+  }
+  .hero-names { font-size: clamp(52px, 14vw, 80px); }
+  .map-wrap { height: 280px; }
+  .contact-buttons { flex-direction: column; align-items: center; }
+  .btn { width: 220px; text-align: center; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════
+     HERO
+══════════════════════════════════ -->
+<section id="hero">
+  <div class="hero-sticky">
+
+    <div class="hero-video-wrap">
+      <!-- Hidden video — used only as a decode source -->
+      <video
+        id="scrub-video"
+        src="https://res.cloudinary.com/ufey9hth/video/upload/v1785324048/Wedding_invitation_opening_luxur__202607291220_1_qcqtc7.mp4"
+        preload="auto"
+        muted
+        playsinline
+        disablePictureInPicture
+        disableRemotePlayback
+        crossorigin="anonymous"
+        style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;"
+      ></video>
+      <!-- Canvas renders frames — no seek stutter -->
+      <canvas id="scrub-canvas" style="width:100%;height:100%;object-fit:cover;display:block;"></canvas>
+    </div>
+
+    <div class="hero-overlay"></div>
+
+    <div class="hero-content">
+      <p class="hero-eyebrow">The Wedding of</p>
+
+      <div class="hero-names">
+        Amélie
+        <span class="amp">&amp;</span>
+        Julien
+      </div>
+
+      <hr class="hero-rule">
+
+      <p class="hero-date-loc">
+        Saturday<span>·</span>14 June 2026<span>·</span>Loire Valley
+      </p>
+    </div>
+
+    <div class="scroll-hint" id="scroll-hint">
+      <p>Scroll to open</p>
+      <div class="scroll-arrow"></div>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════
+     EVENT DETAILS
+══════════════════════════════════ -->
+<section id="details">
+  <div class="container">
+
+    <div class="details-grid">
+
+      <!-- Left: editorial copy -->
+      <div class="details-left">
+        <div class="amber-rule fade-in"></div>
+        <h2 class="details-headline fade-in delay-1">
+          Saturday, the<br>
+          <em>fourteenth of June.</em>
+        </h2>
+        <p class="details-intro fade-in delay-2">
+          We are delighted to invite you to celebrate our marriage at
+          Château de Bellefeuille, nestled among the vineyards of the
+          Loire Valley. The evening will be filled with good wine,
+          slow dancing, and people we love.
+        </p>
+      </div>
+
+      <!-- Right: key/value schedule -->
+      <div class="details-right">
+        <ul class="details-list fade-in delay-1">
+          <li>
+            <span class="dl-key">Ceremony</span>
+            <div>
+              <div class="dl-val">16:00</div>
+              <div class="dl-sub">Chapel doors open at 15:30</div>
+            </div>
+          </li>
+          <li>
+            <span class="dl-key">Dinner</span>
+            <div>
+              <div class="dl-val">19:30</div>
+              <div class="dl-sub">Seated in the grand salon</div>
+            </div>
+          </li>
+          <li>
+            <span class="dl-key">Dress</span>
+            <div>
+              <div class="dl-val">Black Tie</div>
+              <div class="dl-sub">Evening formal</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- Venue + Map -->
+    <div class="venue-block fade-in">
+      <p class="eyebrow" style="margin-bottom:14px;">Venue</p>
+      <h3 class="venue-name">Château de Bellefeuille</h3>
+      <p class="venue-address">6 route des Vignes · 37210 Vouvray · Loire Valley, France</p>
+    </div>
+
+    <div class="map-wrap fade-in delay-1">
+      <iframe
+        src="https://www.openstreetmap.org/export/embed.html?bbox=0.7436,47.3890,0.8036,47.4190&layer=mapnik&marker=47.4040,0.7736"
+        loading="lazy"
+        title="Château de Bellefeuille location"
+        aria-label="Map showing wedding venue location in Vouvray, Loire Valley"
+      ></iframe>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════
+     CONTACT
+══════════════════════════════════ -->
+<section id="contact">
+  <div class="container">
+    <div class="contact-inner">
+
+      <p class="contact-eyebrow fade-in">RSVP · Please reply by 15 April 2026</p>
+
+      <h2 class="contact-headline fade-in delay-1">
+        Will you<br><em>join us?</em>
+      </h2>
+
+      <p class="contact-sub fade-in delay-2">
+        Kindly let us know by the fifteenth of April
+      </p>
+
+      <div class="contact-buttons fade-in delay-3">
+        <a
+          href="https://wa.me/33612345678"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn btn-solid"
+        >Reply on WhatsApp</a>
+        <a
+          href="tel:+33612345678"
+          class="btn btn-outline"
+        >Call +33 6 12 34 56 78</a>
+      </div>
+
+      <p class="rsvp-note fade-in delay-3">
+        Please mention any <strong>dietary requirements</strong> when you reply.
+      </p>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════
+     FOOTER
+══════════════════════════════════ -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <span class="footer-monogram">A &amp; J</span>
+      <span class="footer-date">14 · VI · MMXXVI</span>
+    </div>
+  </div>
+</footer>
+
+
+<script>
+/* ══════════════════════════════════════════════════════
+   CANVAS SCROLL-SCRUBBER
+   Strategy:
+   1. Load video into hidden <video> with preload="auto"
+   2. On every scroll event, set video.currentTime to
+      the target timestamp
+   3. On "seeked", immediately draw that frame to canvas
+      via ctx.drawImage(video, ...)
+   4. Use requestAnimationFrame to batch canvas paints
+      so we never paint more than once per frame
+   This eliminates visual stutter because the canvas
+   paints exactly when the browser is ready to composite,
+   and we're not fighting the video element's own renderer.
+══════════════════════════════════════════════════════ */
+(function () {
+  const video  = document.getElementById('scrub-video');
+  const canvas = document.getElementById('scrub-canvas');
+  const hero   = document.getElementById('hero');
+  const hint   = document.getElementById('scroll-hint');
+
+  if (!video || !canvas || !hero) return;
+
+  const ctx = canvas.getContext('2d');
+
+  // Loading overlay — shown while video buffers
+  const loadEl = document.createElement('div');
+  loadEl.id = 'video-loading';
+  loadEl.innerHTML = '<span>Loading…</span>';
+  Object.assign(loadEl.style, {
+    position: 'absolute', inset: '0', display: 'flex',
+    alignItems: 'center', justifyContent: 'center',
+    fontFamily: 'var(--mono)', fontSize: '10px',
+    letterSpacing: '0.2em', textTransform: 'uppercase',
+    color: 'rgba(244,241,234,0.4)', zIndex: '5',
+    transition: 'opacity 0.6s ease', pointerEvents: 'none'
+  });
+  canvas.parentElement.appendChild(loadEl);
+
+  let rafPending    = false;
+  let targetTime    = 0;
+  let isSeeking     = false;
+  let pendingSeek   = false;
+  let duration      = 0;
+  let lastProgress  = -1;
+
+  // Size canvas to device pixel ratio for crisp rendering
+  function sizeCanvas () {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width  = window.innerWidth  * dpr;
+    canvas.height = window.innerHeight * dpr;
+    ctx.scale(dpr, dpr);
+    // Redraw current frame at new size
+    if (video.readyState >= 2) drawFrame();
+  }
+
+  function drawFrame () {
+    if (!rafPending) {
+      rafPending = true;
+      requestAnimationFrame(() => {
+        rafPending = false;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Cover-fit: fill canvas, centred
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const vAspect = video.videoWidth / video.videoHeight;
+        const cAspect = vw / vh;
+        let drawW, drawH, drawX, drawY;
+        if (cAspect > vAspect) {
+          drawW = vw;
+          drawH = vw / vAspect;
+          drawX = 0;
+          drawY = (vh - drawH) / 2;
+        } else {
+          drawH = vh;
+          drawW = vh * vAspect;
+          drawX = (vw - drawW) / 2;
+          drawY = 0;
+        }
+        ctx.drawImage(video, drawX, drawY, drawW, drawH);
+      });
+    }
+  }
+
+  function doSeek (time) {
+    if (isSeeking) {
+      pendingSeek = true;
+      targetTime  = time;
+      return;
+    }
+    isSeeking = true;
+    video.currentTime = time;
+  }
+
+  video.addEventListener('seeked', () => {
+    drawFrame();
+    isSeeking = false;
+    if (pendingSeek) {
+      pendingSeek = false;
+      doSeek(targetTime);
+    }
+  });
+
+  // Also draw on timeupdate during initial buffer
+  video.addEventListener('timeupdate', drawFrame);
+
+  function getProgress () {
+    const heroTop    = hero.getBoundingClientRect().top + window.scrollY;
+    const heroHeight = hero.offsetHeight - window.innerHeight;
+    const scrolled   = Math.max(0, window.scrollY - heroTop);
+    return Math.min(1, scrolled / heroHeight);
+  }
+
+  function onScroll () {
+    const progress = getProgress();
+
+    // Hint fade
+    if (hint) {
+      hint.style.opacity      = progress > 0.03 ? '0' : '1';
+      hint.style.pointerEvents = progress > 0.03 ? 'none' : 'auto';
+    }
+
+    if (!duration) return;
+    if (Math.abs(progress - lastProgress) < 0.001) return; // no meaningful change
+    lastProgress = progress;
+
+    targetTime = duration * progress;
+    doSeek(targetTime);
+  }
+
+  video.addEventListener('loadedmetadata', () => {
+    duration = video.duration;
+    sizeCanvas();
+    // Draw first frame immediately
+    doSeek(0);
+    // Hide loading overlay
+    loadEl.style.opacity = '0';
+    setTimeout(() => loadEl.remove(), 700);
+  });
+
+  // Fallback: if metadata fires after canplay
+  video.addEventListener('canplay', () => {
+    if (!duration && video.duration) {
+      duration = video.duration;
+      sizeCanvas();
+      doSeek(0);
+      loadEl.style.opacity = '0';
+      setTimeout(() => loadEl.remove(), 700);
+    }
+  });
+
+  video.pause();
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', () => { sizeCanvas(); onScroll(); });
+  onScroll();
+})();
+
+
+/* ══════════════════════════════════
+   INTERSECTION OBSERVER — fade ins
+══════════════════════════════════ */
+(function () {
+  // Respect reduced motion
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.querySelectorAll('.fade-in').forEach(el => el.classList.add('visible'));
+    return;
+  }
+
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        obs.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.12 });
+
+  document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+})();
+</script>
+
+</body>
+</html>
