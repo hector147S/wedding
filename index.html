@@ -493,20 +493,22 @@ footer {
   <div class="hero-sticky">
 
     <div class="hero-video-wrap">
-      <!-- Hidden video — used only as a decode source -->
+      <!-- Video visible immediately — autoplays while cache builds in background -->
       <video
         id="scrub-video"
-        src="https://res.cloudinary.com/ufey9hth/video/upload/v1785324048/Wedding_invitation_opening_luxur__202607291220_1_qcqtc7.mp4"
+        src="https://res.cloudinary.com/ufey9hth/video/upload/q_auto,f_auto,w_720,vc_h264/v1785324048/Wedding_invitation_opening_luxur__202607291220_1_qcqtc7.mp4"
         preload="auto"
         muted
         playsinline
+        autoplay
+        loop
         disablePictureInPicture
         disableRemotePlayback
         crossorigin="anonymous"
-        style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;"
+        style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;transition:opacity 0.5s ease;"
       ></video>
-      <!-- Canvas renders frames — no seek stutter -->
-      <canvas id="scrub-canvas" style="width:100%;height:100%;object-fit:cover;display:block;"></canvas>
+      <!-- Canvas hidden until cache ready, then fades in over the video -->
+      <canvas id="scrub-canvas" style="position:absolute;inset:0;width:100%;height:100%;display:block;opacity:0;transition:opacity 0.5s ease;will-change:contents;transform:translateZ(0);"></canvas>
     </div>
 
     <div class="hero-overlay"></div>
@@ -709,10 +711,12 @@ footer {
 
 <script>
 /* ══════════════════════════════════════════════════════
-   SCROLL-SCRUBBER — desktop: 90 frames @ full DPR
-                   — mobile:  50 frames @ 1× DPR
-                              + touch velocity damping
-                              + will-change GPU hint
+   SCROLL-SCRUBBER — instant video → smooth canvas
+   Phase 1: video autoplays visibly (user sees content
+            immediately, no blank screen)
+   Phase 2: frame cache builds silently in background
+   Phase 3: canvas fades in, takes over scrubbing,
+            video pauses — buttery scroll from here
 ══════════════════════════════════════════════════════ */
 (function () {
   const video  = document.getElementById('scrub-video');
@@ -721,44 +725,19 @@ footer {
   const hint   = document.getElementById('scroll-hint');
   if (!video || !canvas || !hero) return;
 
-  /* ── Device detection ── */
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-                || window.innerWidth < 768;
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+  const TOTAL_FRAMES = isMobile ? 40 : 80;
+  const DPR          = isMobile ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+  const LERP         = isMobile ? 0.3 : 0.18;
 
-  /* ── Tuning per device ── */
-  const TOTAL_FRAMES = isMobile ? 50 : 90;
-  // Mobile: cap at 1× DPR — half the pixels = 4× faster canvas paint
-  const DPR = isMobile ? 1 : Math.min(window.devicePixelRatio || 1, 2);
-  // Mobile lerp: slightly faster catch-up so it doesn't feel sticky
-  const LERP = isMobile ? 0.28 : 0.18;
-
-  /* ── GPU hint on canvas — tells compositor to keep it on GPU layer ── */
-  canvas.style.willChange   = 'contents';
-  canvas.style.transform    = 'translateZ(0)';
+  /* GPU hints on canvas */
+  canvas.style.willChange        = 'contents';
+  canvas.style.transform         = 'translateZ(0)';
   canvas.style.backfaceVisibility = 'hidden';
 
-  /* ── Loading bar ── */
-  const bar = document.createElement('div');
-  Object.assign(bar.style, {
-    position:'absolute', bottom:'0', left:'0', height:'2px',
-    width:'0%', background:'rgba(183,128,58,0.8)',
-    transition:'width 0.2s ease', zIndex:'10', pointerEvents:'none'
-  });
-  canvas.parentElement.appendChild(bar);
-
-  const loadLabel = document.createElement('div');
-  loadLabel.innerHTML = isMobile ? 'Loading…' : 'Loading…';
-  Object.assign(loadLabel.style, {
-    position:'absolute', bottom:'18px', right:'24px',
-    fontFamily:'var(--mono)', fontSize:'9px', letterSpacing:'0.22em',
-    textTransform:'uppercase', color:'rgba(244,241,234,0.35)',
-    zIndex:'10', pointerEvents:'none', transition:'opacity 0.5s ease'
-  });
-  canvas.parentElement.appendChild(loadLabel);
-
-  /* ── Canvas context ── */
-  const ctx2d  = canvas.getContext('2d', { alpha: false }); // alpha:false = faster compositing
-  let   bmpCtx = null;
+  /* Canvas context */
+  const ctx2d = canvas.getContext('2d', { alpha: false });
+  let bmpCtx  = null;
   try { bmpCtx = canvas.getContext('bitmaprenderer'); } catch(e) {}
 
   function sizeCanvas() {
@@ -767,7 +746,7 @@ footer {
   }
   sizeCanvas();
 
-  /* ── Cover-fit ── */
+  /* Cover-fit */
   function coverRect(sw, sh, dw, dh) {
     const sa = sw/sh, da = dw/dh;
     let w, h, x, y;
@@ -776,45 +755,45 @@ footer {
     return {x,y,w,h};
   }
 
-  /* ── Frame cache ── */
+  /* Frame cache */
   const frameCache = new Array(TOTAL_FRAMES);
-  let cacheReady   = 0;
   let allCached    = false;
+  let cacheReady   = 0;
 
-  /* ── State ── */
+  /* State */
   let duration    = 0;
   let isSeeking   = false;
   let pendingTime = -1;
   let currentProg = 0;
   let smoothProg  = 0;
-  let phase       = 'seek';
+  let scrubActive = false; // true once canvas has taken over
 
-  /* ── Paint raw video frame ── */
-  function paintVideo() {
-    const vw = video.videoWidth, vh = video.videoHeight;
-    if (!vw) return;
-    const cw = canvas.width/DPR, ch = canvas.height/DPR;
-    const {x,y,w,h} = coverRect(vw,vh,cw,ch);
-    ctx2d.save(); ctx2d.scale(DPR,DPR);
-    ctx2d.drawImage(video,x,y,w,h);
-    ctx2d.restore();
-  }
-
-  /* ── Paint cached bitmap ── */
+  /* Paint bitmap to canvas */
   function paintBitmap(bmp) {
     if (!bmp) return;
     if (bmpCtx) {
       bmpCtx.transferFromImageBitmap(bmp);
     } else {
       const cw = canvas.width/DPR, ch = canvas.height/DPR;
-      const {x,y,w,h} = coverRect(bmp.width,bmp.height,cw,ch);
-      ctx2d.save(); ctx2d.scale(DPR,DPR);
-      ctx2d.drawImage(bmp,x,y,w,h);
+      const {x,y,w,h} = coverRect(bmp.width, bmp.height, cw, ch);
+      ctx2d.save(); ctx2d.scale(DPR, DPR);
+      ctx2d.drawImage(bmp, x, y, w, h);
       ctx2d.restore();
     }
   }
 
-  /* ── Seek queue ── */
+  /* Paint raw video frame */
+  function paintVideoFrame() {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw) return;
+    const cw = canvas.width/DPR, ch = canvas.height/DPR;
+    const {x,y,w,h} = coverRect(vw, vh, cw, ch);
+    ctx2d.save(); ctx2d.scale(DPR, DPR);
+    ctx2d.drawImage(video, x, y, w, h);
+    ctx2d.restore();
+  }
+
+  /* Seek queue */
   function seekTo(t) {
     if (isSeeking) { pendingTime = t; return; }
     isSeeking = true;
@@ -822,53 +801,51 @@ footer {
   }
 
   video.addEventListener('seeked', () => {
-    if (phase === 'seek') paintVideo();
+    if (scrubActive) paintVideoFrame(); // fallback paint during scrub
     isSeeking = false;
-    if (pendingTime >= 0) { const t=pendingTime; pendingTime=-1; seekTo(t); }
+    if (pendingTime >= 0) { const t = pendingTime; pendingTime = -1; seekTo(t); }
   });
 
-  /* ── Scroll progress ── */
+  /* Scroll progress */
   function getScrollProg() {
     const top = hero.getBoundingClientRect().top + window.scrollY;
     const h   = hero.offsetHeight - window.innerHeight;
     return Math.min(1, Math.max(0, (window.scrollY - top) / h));
   }
 
-  /* ── Touch velocity damping on mobile ──
-     iOS inertia scroll fires many events very fast.
-     We throttle so we never queue more than 1 seek per frame.  ── */
   let ticking = false;
   window.addEventListener('scroll', () => {
     currentProg = getScrollProg();
-    if (isMobile && !ticking) {
-      ticking = true;
-      requestAnimationFrame(() => { ticking = false; });
-    }
     if (hint) {
       hint.style.opacity       = currentProg > 0.03 ? '0' : '1';
       hint.style.pointerEvents = currentProg > 0.03 ? 'none' : 'auto';
     }
+    // Once canvas is live, also do seek-based fallback in case cache missed a frame
+    if (scrubActive && !allCached && !ticking) {
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        const t = currentProg * duration;
+        if (Math.abs(video.currentTime - t) > 0.08) seekTo(t);
+      });
+    }
   }, { passive: true });
 
-  /* ── RAF loop ── */
+  /* RAF loop — only runs after cache is ready */
   function tick() {
     requestAnimationFrame(tick);
+    if (!allCached) return;
     smoothProg += (currentProg - smoothProg) * LERP;
-
-    if (allCached) {
-      const idx = Math.round(smoothProg * (TOTAL_FRAMES - 1));
-      paintBitmap(frameCache[idx]);
-    } else if (phase === 'seek' && duration) {
-      const t = smoothProg * duration;
-      if (Math.abs(video.currentTime - t) > 0.06) seekTo(t);
-    }
+    const idx = Math.round(smoothProg * (TOTAL_FRAMES - 1));
+    paintBitmap(frameCache[idx]);
   }
 
-  /* ── Build frame cache ──
-     On mobile we build fewer frames but resize each bitmap
-     to half-resolution first — much faster to paint later. ── */
+  /* Build cache in background while video plays */
   async function buildCache() {
-    const scale = isMobile ? 0.5 : 1; // capture at 50% on mobile
+    // Pause autoplay loop — we'll seek through frames manually
+    video.loop  = false;
+
+    const scale = isMobile ? 0.5 : 1;
     for (let i = 0; i < TOTAL_FRAMES; i++) {
       const t = (i / (TOTAL_FRAMES - 1)) * duration;
       await new Promise(resolve => {
@@ -883,40 +860,47 @@ footer {
             frameCache[i] = await createImageBitmap(video, opts);
           } catch(e) { frameCache[i] = null; }
           cacheReady++;
-          bar.style.width = (cacheReady / TOTAL_FRAMES * 100) + '%';
           resolve();
         };
         video.addEventListener('seeked', onSeeked, { once: true });
         video.currentTime = t;
       });
-      // Tiny yield between frames on mobile to keep UI thread free
-      if (isMobile && i % 5 === 0) {
-        await new Promise(r => setTimeout(r, 16));
-      }
+      // Yield every 5 frames on mobile to keep UI thread free
+      if (isMobile && i % 5 === 0) await new Promise(r => setTimeout(r, 8));
     }
-    allCached = true;
-    bar.style.opacity      = '0';
-    loadLabel.style.opacity = '0';
-    setTimeout(() => { bar.remove(); loadLabel.remove(); }, 600);
-    isSeeking = false;
+
+    // Cache complete — paint first frame at current scroll pos
+    allCached    = true;
+    scrubActive  = true;
+    smoothProg   = currentProg;
+
+    const idx = Math.round(currentProg * (TOTAL_FRAMES - 1));
+    paintBitmap(frameCache[idx]);
+
+    // Cross-fade: canvas fades in, video fades out
+    canvas.style.opacity = '1';
+    video.style.opacity  = '0';
+    setTimeout(() => { video.pause(); }, 450);
   }
 
-  /* ── Init ── */
+  /* Init — called once video metadata is available */
   function init() {
     duration = video.duration;
     if (!duration) return;
-    phase = 'seek';
+
+    // Start RAF loop (paints nothing until allCached)
     requestAnimationFrame(tick);
-    setTimeout(() => { phase = 'cache'; buildCache(); }, isMobile ? 200 : 400);
+
+    // Build cache after a short delay — lets video render first frame first
+    setTimeout(buildCache, isMobile ? 300 : 500);
   }
 
   video.addEventListener('loadedmetadata', init);
   video.addEventListener('canplay', () => { if (!duration && video.duration) init(); });
-  video.pause();
 
   window.addEventListener('resize', () => {
     sizeCanvas();
-    if (allCached) paintBitmap(frameCache[Math.round(currentProg*(TOTAL_FRAMES-1))]);
+    if (allCached) paintBitmap(frameCache[Math.round(currentProg * (TOTAL_FRAMES - 1))]);
   });
 })();
 
