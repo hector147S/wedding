@@ -3,10 +3,10 @@
    ============================================================ */
 const CONFIG = {
   // Direct MP4 URL (Cloudinary / Bunny / S3 / Vercel Blob, etc.)
-  videoUrl: "https://res.cloudinary.com/ufey9hth/video/upload/v1785488137/Envelope_opening_revealing_weddi__202607310955_un5ana.mp4",
+  videoUrl: "https://res.cloudinary.com/ufey9hth/video/upload/v1786549323/Design_sans_titre_1_lczet0.mp4",
 
   // First frame of the video, extracted by Cloudinary on the fly (so_0 = second 0).
-  posterUrl: "https://res.cloudinary.com/ufey9hth/video/upload/so_0/v1785488137/Envelope_opening_revealing_weddi__202607310955_un5ana.jpg",
+  posterUrl: "https://res.cloudinary.com/ufey9hth/video/upload/so_0/v1786549323/Design_sans_titre_1_lczet0.jpg",
 
   // Full postal address of the venue (used for the "Open in Google Maps" button)
   venueAddress: "Paris, France",
