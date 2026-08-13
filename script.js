@@ -8,6 +8,10 @@ const CONFIG = {
   // First frame of the video, extracted by Cloudinary on the fly (so_0 = second 0).
   posterUrl: "https://res.cloudinary.com/ufey9hth/video/upload/so_0/v1786622919/Wedding_invitation_reveal_animation_202608131250_efbmly.jpg",
 
+  // Background music — plays instead of the video's own (muted) audio, and keeps
+  // playing through the map screen.
+  audioUrl: "https://res.cloudinary.com/ufey9hth/video/upload/v1786624115/Eternal_Vow_aevvsa.mp4",
+
   // Full postal address of the venue (used for the "Open in Google Maps" button)
   venueAddress: "Villa la maison blanche, QPH9+C9V, Sfax",
 
@@ -38,6 +42,7 @@ const CONFIG = {
 
 const stage      = document.getElementById("stage");
 const video      = document.getElementById("video");
+const audio      = document.getElementById("bgm");
 const slide      = document.querySelector(".slide");
 const thumb      = document.querySelector(".slide__thumb");
 const track      = document.querySelector(".slide__track");
@@ -50,10 +55,12 @@ mapBtn.href = `https://www.google.com/maps/search/?api=1&query=${encoded}`;
 mapEmbed.src = CONFIG.mapEmbedSrc
   || `https://www.google.com/maps?q=${encoded}&output=embed`;
 
-/* ---------- wire the poster + video source ---------- */
+/* ---------- wire the poster + video + audio sources ---------- */
 document.querySelector(".poster-img").src = CONFIG.posterUrl;
 video.poster = CONFIG.posterUrl;
 video.src = CONFIG.videoUrl;
+video.muted = true;
+audio.src = CONFIG.audioUrl;
 
 /* ---------- slide-to-open ---------- */
 let dragging = false;
@@ -125,15 +132,8 @@ function commitOpen() {
 
   // Switch layer + kick play() synchronously — required by iOS
   stage.dataset.state = "video";
-  const p = video.play();
-  if (p && typeof p.catch === "function") {
-    p.catch(() => {
-      // Autoplay with sound was blocked by the browser. Fall back to muted
-      // playback so the video doesn't stall (no manual unmute control).
-      video.muted = true;
-      video.play().catch(() => {});
-    });
-  }
+  video.play().catch(() => {});
+  audio.play().catch(() => {});
 }
 
 /* ---------- end of video → map ---------- */
@@ -141,6 +141,7 @@ function goToMap() {
   if (stage.dataset.state === "map") return;
   stage.dataset.state = "map";
   try { video.pause(); } catch (_) {}
+  // Music keeps playing on the map screen — don't touch `audio` here.
 }
 video.addEventListener("ended", goToMap);
 // Safety net: some mobile browsers occasionally miss `ended`.
