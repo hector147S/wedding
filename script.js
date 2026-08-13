@@ -9,7 +9,7 @@ const CONFIG = {
   posterUrl: "https://res.cloudinary.com/ufey9hth/video/upload/so_0/v1786549323/Design_sans_titre_1_lczet0.jpg",
 
   // Full postal address of the venue (used for the "Open in Google Maps" button)
-  venueAddress: "Paris, France",
+  venueAddress: "Villa la maison blanche, QPH9+C9V, Sfax",
 
   // Optional: paste a Google Maps "embed" src here to override the default search embed.
   // Get it from Google Maps → Share → Embed a map → copy the src="..." URL.
