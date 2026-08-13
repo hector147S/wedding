@@ -136,7 +136,6 @@ html, body { margin: 0; padding: 0; height: 100%; background: var(--cream); colo
 
 /* --- map layer --- */
 .layer--map {
-  position: relative;
   background: var(--cream);
   padding: 24px;
   align-items: flex-start;
