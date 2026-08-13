@@ -86,7 +86,6 @@ function onMove(e) {
   if (!dragging) return;
   const p = pointFrom(e);
   setThumb(p.x - startX);
-  if (currentX >= maxX * 0.92) commitOpen();
 }
 function onUp() {
   if (!dragging) return;
