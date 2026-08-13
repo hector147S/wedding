@@ -3,10 +3,10 @@
    ============================================================ */
 const CONFIG = {
   // Direct MP4 URL (Cloudinary / Bunny / S3 / Vercel Blob, etc.)
-  videoUrl: "https://res.cloudinary.com/ufey9hth/video/upload/v1786549323/Design_sans_titre_1_lczet0.mp4",
+  videoUrl: "https://res.cloudinary.com/ufey9hth/video/upload/v1786622919/Wedding_invitation_reveal_animation_202608131250_efbmly.mp4",
 
   // First frame of the video, extracted by Cloudinary on the fly (so_0 = second 0).
-  posterUrl: "https://res.cloudinary.com/ufey9hth/video/upload/so_0/v1786549323/Design_sans_titre_1_lczet0.jpg",
+  posterUrl: "https://res.cloudinary.com/ufey9hth/video/upload/so_0/v1786622919/Wedding_invitation_reveal_animation_202608131250_efbmly.jpg",
 
   // Full postal address of the venue (used for the "Open in Google Maps" button)
   venueAddress: "Villa la maison blanche, QPH9+C9V, Sfax",
