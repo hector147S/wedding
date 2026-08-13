@@ -129,28 +129,12 @@ function commitOpen() {
   const p = video.play();
   if (p && typeof p.catch === "function") {
     p.catch(() => {
-      // Autoplay with sound was blocked. Fall back to muted playback and offer unmute.
+      // Autoplay with sound was blocked by the browser. Fall back to muted
+      // playback so the video doesn't stall (no manual unmute control).
       video.muted = true;
-      video.play().then(showUnmutePill).catch(() => {});
+      video.play().catch(() => {});
     });
   }
-}
-
-/* ---------- unmute pill fallback ---------- */
-function showUnmutePill() {
-  let pill = document.querySelector(".unmute");
-  if (!pill) {
-    pill = document.createElement("button");
-    pill.className = "unmute";
-    pill.type = "button";
-    pill.textContent = "Activer le son";
-    pill.addEventListener("click", () => {
-      video.muted = false;
-      pill.remove();
-    });
-    document.querySelector(".layer--video").appendChild(pill);
-  }
-  pill.classList.add("is-visible");
 }
 
 /* ---------- end of video → map ---------- */

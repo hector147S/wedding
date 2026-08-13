@@ -269,22 +269,3 @@ html, body { margin: 0; padding: 0; height: 100%; background: var(--cream); colo
   border-radius: 12px;
   background: var(--cream-2);
 }
-
-/* --- unmute pill (fallback) --- */
-.unmute {
-  position: absolute;
-  top: calc(env(safe-area-inset-top, 0px) + 16px);
-  right: 16px;
-  padding: 10px 14px;
-  border-radius: 999px;
-  background: rgba(0,0,0,0.55);
-  color: #fff;
-  font-size: 12px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  border: 1px solid rgba(255,255,255,0.25);
-  backdrop-filter: blur(10px);
-  cursor: pointer;
-  display: none;
-}
-.unmute.is-visible { display: inline-block; }
