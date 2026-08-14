@@ -9,8 +9,9 @@ const CONFIG = {
   posterUrl: "https://res.cloudinary.com/ufey9hth/video/upload/so_0/v1786622919/Wedding_invitation_reveal_animation_202608131250_efbmly.jpg",
 
   // Background music — plays instead of the video's own (muted) audio, and keeps
-  // playing through the map screen.
-  audioUrl: "https://res.cloudinary.com/ufey9hth/video/upload/v1786624115/Eternal_Vow_aevvsa.mp4",
+  // playing through the map screen. Requested as .mp3 so Cloudinary transcodes
+  // the source to audio-only instead of shipping its full video stream (~11MB → ~4MB).
+  audioUrl: "https://res.cloudinary.com/ufey9hth/video/upload/v1786624115/Eternal_Vow_aevvsa.mp3",
 
   // Full postal address of the venue (used for the "Open in Google Maps" button)
   venueAddress: "Villa la maison blanche, QPH9+C9V, Sfax",
