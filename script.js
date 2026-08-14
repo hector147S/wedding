@@ -3,10 +3,10 @@
    ============================================================ */
 const CONFIG = {
   // Direct MP4 URL (Cloudinary / Bunny / S3 / Vercel Blob, etc.)
-  videoUrl: "https://res.cloudinary.com/ufey9hth/video/upload/v1786622919/Wedding_invitation_reveal_animation_202608131250_efbmly.mp4",
+  videoUrl: "https://res.cloudinary.com/ufey9hth/video/upload/v1786702270/Wedding_invitation_extended_1_cp0jyg.mp4",
 
   // First frame of the video, extracted by Cloudinary on the fly (so_0 = second 0).
-  posterUrl: "https://res.cloudinary.com/ufey9hth/video/upload/so_0/v1786622919/Wedding_invitation_reveal_animation_202608131250_efbmly.jpg",
+  posterUrl: "https://res.cloudinary.com/ufey9hth/video/upload/so_0/v1786702270/Wedding_invitation_extended_1_cp0jyg.jpg",
 
   // Background music — plays instead of the video's own (muted) audio, and keeps
   // playing through the map screen. Requested as .mp3 so Cloudinary transcodes
